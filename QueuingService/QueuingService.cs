@@ -9,6 +9,7 @@ using Microsoft.ServiceFabric.Services.Remoting.Runtime;
 using Microsoft.ServiceFabric.Services.Runtime;
 using QueuingShared;
 using System.Linq;
+using Microsoft.ServiceFabric.Data.Collections.Preview;
 
 namespace QueuingService
 {
@@ -17,9 +18,9 @@ namespace QueuingService
     /// </summary>
     internal sealed class QueuingService : StatefulService, IQueuing, IWorker
     {
-        private IReliableQueue<ExecutionData> lowQueue;
-        private IReliableQueue<ExecutionData> midQueue;
-        private IReliableQueue<ExecutionData> topQueue;
+        private IReliableConcurrentQueue<ExecutionData> lowQueue;
+        private IReliableConcurrentQueue<ExecutionData> midQueue;
+        private IReliableConcurrentQueue<ExecutionData> topQueue;
         private bool initialised;
 
         public QueuingService(StatefulServiceContext context)
@@ -59,13 +60,13 @@ namespace QueuingService
                 switch (priority)
                 {
                     case QueuePriority.Low:
-                        result = lowQueue.TryDequeueAsync(tx).Result.Value;
+                        result = await lowQueue.DequeueAsync(tx);
                         break;
                     case QueuePriority.Mid:
-                        result = midQueue.TryDequeueAsync(tx).Result.Value;
+                        result = await midQueue.DequeueAsync(tx);
                         break;
                     case QueuePriority.Top:
-                        result = topQueue.TryDequeueAsync(tx).Result.Value;
+                        result = await topQueue.DequeueAsync(tx);
                         break;
                 }
 
@@ -95,9 +96,9 @@ namespace QueuingService
         /// <param name="cancellationToken">Canceled when Service Fabric needs to shut down this service replica.</param>
         protected override async Task RunAsync(CancellationToken cancellationToken)
         {
-            lowQueue = await this.StateManager.GetOrAddAsync<IReliableQueue<ExecutionData>>("low-priority");
-            midQueue = await this.StateManager.GetOrAddAsync<IReliableQueue<ExecutionData>>("mid-priority");
-            topQueue = await this.StateManager.GetOrAddAsync<IReliableQueue<ExecutionData>>("top-priority");
+            lowQueue = await this.StateManager.GetOrAddAsync<IReliableConcurrentQueue<ExecutionData>>("low-priority");
+            midQueue = await this.StateManager.GetOrAddAsync<IReliableConcurrentQueue<ExecutionData>>("mid-priority");
+            topQueue = await this.StateManager.GetOrAddAsync<IReliableConcurrentQueue<ExecutionData>>("top-priority");
 
             initialised = true;
 
